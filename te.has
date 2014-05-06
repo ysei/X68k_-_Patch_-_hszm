@@ -1,0 +1,88 @@
+
+pal_set *()
+*
+*	use	d0 - d3 ,	a2
+
+		move.l	#$8000_0000,d1	8	*pal_code(8000は垂直なんたら無視の為の)
+		moveq.L	#0,d2
+		  add.b	#1,d2			*pal_block1から
+		lea.L	pal_data,a2		*pal_dataの先頭アドレスをにa2に
+		  add.w	#32,a2			*pal_block1のデータから
+
+~LOOP_pal_block *{
+			clr.b	d1
+~~LOOP_pal_code *{
+				move	(a2)+,d3
+				IOCS	_SPALET (d123) (cf)
+				add.b	#1,d1	*pal_code = pal_code + 1
+			cmp.b	#16,d1
+			bNE.b	~~LOOP_pal_code
+*~~}
+			add.b	#1,d2		*pal_block = pal_block + 1
+		cmp.b	#16,d2
+		bNE.b	~LOOP_pal_block
+*~}
+	RTS ()
+*---------------------
+DEF_CHR *()
+*
+;use	{
+	*		A1
+	*		D0
+	r_28	D1,<	moveq.L	#0,d1	>
+	r_28	D2,<	moveq.L	#0,d2	>
+	*		D7
+;}
+
+	move	#_chr_code__jiki,d1	*PCGコード
+	move	#1,d2			*パターンサイズ
+	lea.L	__buf_chr_data__jiki,a1
+
+	move	#63,d7			*63回繰り返す(64回実行するッて事)
+@@										*{
+		IOCS	_SP_DEFCG (d12,a1) (c5)	*　jiki
+		add.w	#1,d1
+		add.w	#128,a1
+	DBRA	d7,@B ~						*}
+
+	lea.L	__buf_chr_data__top,a1
+	move	#(_chr_code__base+4),d1
+
+	move	#3,d7
+@@										*{
+		IOCS	_SP_DEFCG (d12,a1) (c5)	*　top
+		add.w	#1,d1
+		add.w	#128,a1
+	DBRA	d7,@B ~						*}
+ RTS ()
+*=====================================
+PCM_INIT *()
+;use	{
+	r_name	A2,~~pcm_data~AD2,	<	lea.L	pcm_data~,~~pcm_data~AD2	>
+	r_name	A3,~~pcm_ptr~AD3,	<	lea.L	__pcm_ptr,~~pcm_ptr~AD3		>
+	r_name	A4,~~file_name~AD4
+	*		( D0 - D1 )
+;}
+	move.l	~~pcm_data~AD2,(~~pcm_ptr~AD3)+		*pcmデータバッファの先頭アドレスを
+												*　初めのポインタに入れる
+	move.l	#__fn_pcm_baku,~~file_name~AD4
+	BSR	FILE_READ ( d2 ,
+	add.l	d0,~~pcm_data~AD2
+	move.l	~~pcm_data~AD2,(~~pcm_ptr~AD3)+		*次に読み込むpcmデータの入るアドレス
+	BSR	FILE_CLOSE (d1)
+
+	move.l	#__fn_pcm_damage,~~file_name~AD4
+	BSR	FILE_READ ( d2 ,
+	add.l	d0,~~pcm_data~AD2
+	move.l	~~pcm_data~AD2,(~~pcm_ptr~AD3)+		*次に読み込むpcmデータの入るアドレス
+	BSR	FILE_CLOSE (d1)
+
+	move.l	#__fn_pcm_shot,~~file_name~AD4
+	BSR	FILE_READ ( d2 ,
+	add.l	d0,~~pcm_data~AD2
+	move.l	~~pcm_data~AD2,(~~pcm_ptr~AD3)+
+	BSR	FILE_CLOSE (d1)
+
+ RTS ()
+
+

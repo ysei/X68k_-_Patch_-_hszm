@@ -1,0 +1,65 @@
+
+	*インクルードファイルよ
+	.include	doscall.mac
+	.include	iocscall.mac
+	.include	naw.mac
+
+	.globl	FREAD
+	.globl	FWRITE
+
+FREAD *( a1:file_nameのpointer , a2:buffer )	*エラーコード未対応
+	PUSH	d0
+;use	{ d0 , d1 }
+
+	m	<clr __file_open_mode>,	<BSR FOPEN>
+
+	move.l	#-1,-(sp)		*読み込む長さ
+	move.l	a2,-(sp)
+	move	d0,-(sp)
+	DOS	_READ → d0 (ff3f)
+	lea.L	10(sp),sp
+
+	BSR	FCLOSE ( __fn )
+	POP	d0
+ RTS ()
+*--------------------
+FWRITE
+	PUSH	d0
+
+	move	#%100000,-(sp)
+	move.l	a1,-(sp)
+	DOS	_CREATE
+	addq.l	#6,sp
+
+	m	<move #1,__file_open_mode>,	<BSR FOPEN>
+
+	move.l	d1,-(sp)
+	move.l	a2,-(sp)
+	move	__fn,-(sp)
+	DOS	_WRITE
+	lea	10(sp),sp
+
+	BSR	FCLOSE ( __fn )
+
+	POP	d0
+ RTS
+*----------------------
+FOPEN
+	move	__file_open_mode,-(sp)
+	move.l	a1,-(sp)
+	DOS	_OPEN → d0 (ff3d)	*開いたファイル番号が帰る
+	addq.l	#6,sp
+	move	d0,__fn			*次の処理でd0が壊れるから__fnにバックアップしとく
+ RTS ()
+*----------------------
+FCLOSE *()
+	move	__fn,-(sp)
+	DOS	_CLOSE	(ff3e)		*エラーならd0に負の値が帰る
+	addq.l	#2,sp
+ RTS ()
+*-------------------------
+
+	.bss
+__fn			.ds.w	1
+__file_open_mode	.ds.w	1
+

@@ -1,0 +1,194 @@
+
+	*hisio
+
+	.include	common.inc
+
+	.text
+	.even
+
+;use	{
+	m	<r_name	D3,~~x~DT3>,		<r_name	D4,~~y~DT4>
+	m	<r_name	D1,~~Pcode~DT1>,	<r_name	D2,~~pri~DT2>
+;}
+
+	pea	mysp
+	BSR	MAIN_INIT ()
+
+	BSR	PAL_SET
+
+	m	<lea 表示,a1>,	<moveq #1,d1>,	<IOCS _VDISPST>
+	clr	__draw_ok
+MAIN_LOOP:
+		eor	#1,__2_count
+
+		m	<moveq #1,d1>,	<IOCS _BITSNS>,	<btst #7,d0>,	<bNE EXIT_MAIN>
+		IFn EQ,	<tst.b d0>,	<BSR SCROLL_SPEED>
+		m	<moveq #0,d1>,	<IOCS _BITSNS>
+		IFn EQ, <tst.b d0>, <BSR PAUSE>
+
+		BSR	MO
+		BSR	SCROLL
+~no_scroll__MAIN_LOOP
+
+		move	#1,__draw_ok
+@@		M	<tst __draw_ok>,	<bNE @B>
+	BRA	MAIN_LOOP
+EXIT_MAIN
+	m	<clr.l a1>,	<IOCS _VDISPST>
+	DOS	_EXIT
+*---------------
+MO *()
+;	use{
+	r_nameS	A2,~~sp_buf~AD2,	<lea __sp_buf_B>
+;}
+*	BSR	PAL_SET
+
+	move.l	#0,d1
+	move.l	#1,d2
+	lea	__chr_data1+(100*128),a1
+	LP 3,	d7,	<IOCS _SP_DEFCG>,	<add #1,d1>,	<add.l #128,a1>
+
+	BSR	JOY_GET
+	m	<move __Jx,~~x~DT3>,	<move __Jy,~~y~DT4>
+	M	<btst #0,__joy_state>,	<bNE @F>	*上か
+		IFn EQ,	<cmp #_Jy_limit1,~~y~DT4>,	<sub #1,~~y~DT4>
+@@:	M	<btst #1,__joy_state>,	<bNE @F>	*下か
+		IFn EQ,	<cmp #_Jy_limit2,~~y~DT4>,	<add #1,~~y~DT4>
+@@;
+	M	<btst #2,__joy_state>,	<bNE @F>	*左か
+		IFn EQ,	<cmp #_Jx_limit1,~~x~DT3>,	<sub #1,~~x~DT3>
+@@:	M	<btst #3,__joy_state>,	<bNE @F>	*右か
+		IFn EQ,	<cmp #_Jx_limit2,~~x~DT3>,	<add #1,~~x~DT3>
+@@;
+	m	<move ~~x~DT3,__Jx>,	<move ~~y~DT4,__Jy>	*ワークには新しい仮想座標を戻す
+
+	move	~~x~DT3,d0
+	sub	#_実x0,d0
+
+	m	<move d0,d1>,	<add d0,d0>,	<add d1,d0>	*d0 = d0 * 3
+	m	<move d0,d1>,	<lsl #5,d0>,	<add d1,d0>	*d0 = d0 * 32 + d0
+	lsr	#8,d0	*d0 = d0 / 256		*=99/256
+
+	move	#_実x0,d1
+	sub	d0,d1
+	move	d1,__GNDx
+
+	sub	__GNDx_old,d1
+	move	d1,__num__GNDx_scroll		*x方向にスクロールしたドット数-1か0か1が入る
+
+	move	__GNDx,__GNDx_old
+
+
+	m	<move #(4<<8)+0,~~Pcode~DT1>,	<move #3,~~pri~DT2>
+	LP 1,	d7,	<BSR SP_SET>,	<add #16,~~x~DT3>,	<add #1,~~Pcode~DT1>
+	m	<sub #32,~~x~DT3>,	<add #16,~~y~DT4>
+	LP 1,	d7,	<BSR SP_SET>,	<add #16,~~x~DT3>,	<add #1,~~Pcode~DT1>
+
+ RTS ()
+*---------------
+PAL_SET			* *( ~~so~DT1 , ~~di~DT2 )
+*	use	d0 - d3 ,	a2
+
+	move.l	#$8000_0000,d1	8	*pal_code(8000は垂直なんたら無視の為の)
+	moveq.L	#0,d2
+	  add	#1,d2			*pal_block1から
+	lea	__d24_1+$8C60,a2	*pal_dataの先頭アドレスをにa2に
+
+~LOOP_pal_block
+		clr	d1
+@@			move	(a2)+,d3
+			IOCS	_SPALET (d123) (cf)
+			add	#1,d1	*pal_code = pal_code + 1
+		M	<cmp #16,d1>,	<bNE @B>
+		add.b	#1,d2		*pal_block = pal_block + 1
+	M	<cmp #16,d2>,	<bNE ~LOOP_pal_block>
+
+ RTS ()
+*----------------
+JOY_GET *()
+	PUSH	d0-d1
+	move.b	__joy_state,	__joy_old
+	m	<clr d1>,	<IOCS _JOYGET>,	<move.b	d0,__joy_state>
+	POP	d0-d1
+ RTS ()
+*---------------
+SP_SET *( ~~sp_buf~AD2 , d1-d4 )
+	PUSH	d3-d4
+	m	<sub #_実x0-16,~~x~DT3>,	<add __x0,~~x~DT3>
+	m	<sub #_実y0-16,~~y~DT4>,	<add __y0,~~y~DT4>
+	movem	d1-d4,-(~~sp_buf~AD2)
+	POP	d3-d4
+ RTS ( ~~sp_buf~AD2 )
+*======================
+表示 *()
+	M	<tst __draw_ok>,	<bEQ EXIT__表示>
+	clr	__draw_ok
+;	use{
+	r_nameS	A2,~~sp_buf~AD2,	<lea __sp_buf_B>
+	r_nameS	A3,~~sp_reg~AD3,	<move.l #$eb0000>
+;}
+	move	#127,d0
+@@		move.l	-(~~sp_buf~AD2),(~~sp_reg~AD3)+
+		move.l	-(~~sp_buf~AD2),(~~sp_reg~AD3)+
+	dbF	d0,@B
+
+EXIT__表示	RTE ()
+*------------------
+PAUSE
+@@	m	<moveq #0,d1>,	<IOCS _BITSNS>,	<tst.b d0>,	<bNE @B>
+@@	m	<moveq #0,d1>,	<IOCS _BITSNS>,	<tst.b d0>,	<bEQ @B>
+@@	m	<moveq #0,d1>,	<IOCS _BITSNS>,	<tst.b d0>,	<bNE @B>
+ RTS ()
+*--------------------
+SCROLL_SPEED
+	eor	#1,__scroll_speed_flag
+ RTS ()
+*======================
+	.bss
+
+__x0	.ds.w	1
+__y0	.ds.w	1
+
+__GNDxy:
+__GNDx	.ds.w	1
+__GNDy	.ds.w	1
+
+__GNDx_old	.ds.w	1
+__num__GNDx_scroll	.ds.w	1	*x方向にスクロールしたドット数-1か0か1が入る
+
+__draw_ok	.ds.w	1
+__joy_state	.ds.b	1
+__joy_old	.ds.b	1
+__2_count	.ds.w	1
+
+__sp_buf_F
+	.ds.w	4*128
+__sp_buf_B
+
+__no_縦scroll_flag	.ds.w	1
+__on_the_GND_flag	.ds.w	1
+
+	.even
+__d24_1		.ds.b	$9c00	*967a0+ 9C00= A03A0
+__地形table＆	.ds.b	$10000	;data25
+__地形pcg_data	.ds.b	$80000	;data26
+__chr_data1	.ds.b	131072	;data28
+__chr_data2	.ds.b	131072	;data29
+
+*	$70f0,	$1B70,	$800,	$200,	$200,	$3a0
+
+
+	.data
+*	.even
+__Jx	.dc.w	256
+__Jy	.dc.w	256
+
+
+	.stack
+	.even
+	.comm	mystack,	1024	*スタック領域だよーん
+mysp
+
+			.end
+
+

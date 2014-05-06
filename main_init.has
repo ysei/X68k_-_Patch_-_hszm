@@ -1,0 +1,138 @@
+
+	.include	common.inc
+
+	.globl	MAIN_INIT
+	.even
+MAIN_INIT *()				*メインの初期化ルーチンだよーん	{
+;	use	{	d0 - d4	}
+
+	BSR	HENSUH_INIT ()
+
+	move	#$13b,d1	*10c
+	IOCS	_CRTMOD (d1) (10) 	*  336×448,24kHzにして(要excrt.r)
+					*　　(使うのは240×320) den vol30
+*		$3F	mid	336*448		16/65536 512*512	使える
+
+	IOCS	_G_CLR_ON ()		*  表示onモードにする
+	BSR	READ_FILE ()
+
+	m	<move #0,d1>,	<move #0,d2>,	<move #511,d3>,	<move #511,d4>
+	IOCS	_WINDOW (d1234) (b4)
+
+			* sp tx gr   h <-gr→ l
+*	move	#%10_00_01__00_01_10_11,d1
+*	IOCS	_PRIORITY (d1) (92)
+
+	BSR	game_gamen_init ()
+	BSR	GND__INIT ()
+
+
+	BSR	WORKING_METER ()
+	m	<IOCS _B_CUROFF ()>,	<IOCS _MS_CUROF () (7x)>
+	m	<moveq #0,d1>,	<IOCS _SKEY_MOD>
+	IOCS	_SP_ON () (cx)		*  スプライト表示on
+
+ RTS ()				*}
+*---------------
+HENSUH_INIT *()
+	move	#_offset_x,__x0
+	move	#_offset_y,__y0
+ RTS ()
+*---------------
+WORKING_METER *()
+	pea	@F
+	LP 60,d1,	<DOS _PRINT (sp) (ff09)>
+	addq.l	#4,sp
+ RTS ()
+	.data
+@@	.dc.b $0a,$0d,8,8,'♪',0
+	.text
+	.even
+*=======================================
+READ_FILE *()
+;	use	{	d0 - d1 ,	a7	}
+	m	<lea __fn_地形table＆,a1>,	<lea __地形table＆,a2>,	<BSR FREAD>
+
+	m	<lea __fn_d24,a1>,		<lea __d24_1,a2>,	<BSR FREAD>
+	BSR	G_PAL_SET
+
+	m	<lea __fn_地形pcg_data,a1>,	<lea __chr_data1,a2>,	<BSR FREAD>
+	BSR	DATA_COPY__READ_FILE ()
+
+	m	<lea __fn_chr_data1,a1>,	<lea __chr_data1,a2>,	<BSR FREAD>
+	m	<lea __fn_chr_data2,a1>,	<lea __chr_data2,a2>,	<BSR FREAD>
+ RTS ()
+*--
+DATA_COPY__READ_FILE *()
+	PUSH	d0-d3/a1-a2
+	SUPER
+	m	<lea __chr_data1,a1>,	<lea __地形pcg_data,a2>
+	m	<clr d3>,	<move #3,d1>
+@@	*	LP -1,d2,	<move.b (a1)+,d3>,	<move d3,(a2)+>
+		move	#-1,d2
+LLL_DC			move.b (a1)+,d3
+			move d3,(a2)+
+		dbF	d2,LLL_DC
+	dbF	d1,@B
+	USER
+	POP	d0-d3/a1-a2
+ RTS ()
+*-------------------
+G_PAL_SET
+	SUPER
+	lea	__d24_1+$9460,a1
+	lea	_G_PAL,a2
+	LP 127,d0,	<move.l (a1)+,(a2)+>
+	USER
+ RTS ()
+*-------------------
+game_gamen_init *()
+;use	d0 - d3 ,	a7
+	move	#3,-(sp)	*パレットコード
+	move	#511,-(sp)		*Y2
+	move	#511,-(sp)		*X2
+	clr.w	-(sp)			*Y1
+	clr.w	-(sp)			*X1
+	BSR	iocs_fill (sp+4)	*_FILLの実行だ
+	adda.l	#10,sp			*スタック補正
+
+	move	#0,-(sp)
+	move	#(_画面y-1),-(sp)
+	move	#(_画面x-1),-(sp)
+	clr.w	-(sp)
+	clr.w	-(sp)
+	BSR	iocs_fill (sp+4)
+	adda.l	#10,sp			*スタック補正
+
+
+	move.b	#0,d1			*有効ページ全部
+	m	<move #512,d2>,	<sub __x0,d2>
+	m	<move #512,d3>,	<sub __y0,d3>
+	IOCS	_HOME (d123) (b3)	*ちとスクロール
+
+ RTS ()
+*-------------------
+iocs_fill *(sp)
+;use	a1 ,	a7
+	movea.l	sp,a1
+	adda.l	#4,a1			*BSRで4足されたから？
+	IOCS	_FILL (a1) (ba)
+ RTS ()
+*------------------------
+
+*	.include	fread.s
+
+
+	.data
+	.even
+
+__fn_d24:		.dc.b	'data\data24B',0
+__fn_地形table＆	.dc.b	'..\hisyouzame\moto\data25',0
+__fn_地形pcg_data	.dc.b	'..\hisyouzame\moto\data26',0
+__fn_chr_data1		.dc.b	'..\hisyouzame\moto\data28',0
+__fn_chr_data2		.dc.b	'..\hisyouzame\moto\data29',0
+
+*	.bss
+*	.even
+
+

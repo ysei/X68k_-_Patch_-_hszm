@@ -1,0 +1,63 @@
+
+
+	.include	doscall.mac
+	.include	iocscall.mac
+	.include	naw.mac
+
+	*naw_file.o‚ðƒŠƒ“ƒN‚µ‚Ä‚Ë
+
+
+	m	<lea __fn_d24,a1>,	<lea __data_buf,a2>,	<BSR FREAD>
+
+	BSR	INIT__BG_PAL
+	BSR	INIT__SP_PAL
+	BSR	INIT__G_PAL
+
+	m	<lea __fn_d24B,a1>,	<lea __data_buf,a2>,	<move.l #$9c00,d1>
+	BSR	FWRITE
+
+	DOS	_EXIT
+
+*---------------
+INIT__BG_PAL
+	PUSH	D0-D3/A0-A1
+*	m	<lea $9FE00,A0>,	<lea $9FE00,A1>,	<move #$FF,D3>
+	m	<lea __data_buf+$9660,A0>,	<move.l a0,A1>,	<move #$FF,D3>
+	BSR	DATA_CONVERT
+	POP	D0-D3/A0-A1
+ RTS
+*----------------
+INIT__SP_PAL
+	PUSH	D0-D3/A0-A1
+*	m	<lea $9F400,A0>,	<lea $9F400,A1>,	<move #$3FF,D3>
+	m	<lea __data_buf+$8C60,A0>,	<move.l a0,A1>,	<move #$3FF,D3>
+	BSR	DATA_CONVERT
+	POP	D0-D3/A0-A1
+ RTS
+*-----------------------
+INIT__G_PAL
+	PUSH	D0-D3/A0-A1
+*	m	<lea _G_PAL,A0>,	<lea $9FC00,A1>,	<move #$FF,D3>
+	m	<lea __data_buf+$9460,A0>,	<move.l a0,A1>,	<move #$FF,D3>
+	BSR	DATA_CONVERT
+	POP	D0-D3/A0-A1
+ RTS
+*----------------------
+DATA_CONVERT
+@@
+		move	(A1)+,D0
+		m	<lsl #1,D0>,	<move D0,D1>,	<move D0,D2>
+		m	<and #$F800,D0>,	<and #$7C0,D1>,	<and #$3E,D2>
+		m	<lsl #5,D1>,	<lsl #5,D2>
+		m	<lsr #5,D0>,	<lsr #5,D0>,	<or D1,D0>,	<or D2,D0>
+		move	D0,(A0)+
+	dbF	D3,@B
+ RTS ()
+*--------------
+	.data
+__fn_d24	.dc.b	'G:\”òãÄŽL\moto\data24',0
+__fn_d24B	.dc.b	'data24b',0
+
+	.bss
+__data_buf	.ds.b	$9c00	*original is from 967a0
+

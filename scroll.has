@@ -1,0 +1,206 @@
+
+	.include	common.inc
+
+	.globl	SCROLL
+	.globl	GND__INIT
+
+	.globl	__scroll_speed_flag
+
+	.even
+*--------------------
+SCROLL *()
+	SUPER
+	M	<tst __scroll_speed_flag>,	<bNE @F>
+		M	<tst __2_count>,	<bNE ~no_y_scroll__SCROLL>
+@@;
+		sub	#1,__GSy
+		BSR	DRAW_GR
+*		BSR	PUT_BG
+~no_y_scroll__SCROLL
+
+	m	<move __num__GNDx_scroll,d0>,	<sub d0,__GSx>
+	lea	_CRTC_GS0_SC,a0
+	move.l	__GSxy,(a0)+
+	move.l	__GSxy,(a0)+
+*	move.l	__GSxy,(a0)+
+*	move.l	__GSxy,(a0)+
+	USER
+ RTS ()
+*---------------------
+DRAW_GR *()
+	M	<sub #1,__16dot_ctr>,	<bNE @F>
+		BSR	READ_地形CODE *()
+		move	#$10,__16dot_ctr
+		move	#$A,__BACKを10回に分けて描くCOUNTER	*6回は休み
+		M	<sub	#1,__GND2関係>,	<bNE @F>
+			move	#$20,__GND2関係
+			PUSH	D0/A0
+				lea	__地形table＆,a0
+				m	<moveq #0,D0>,	<move	__area2,D0>,	<add	#1,D0>
+				IFn NE,	<cmp #$32,D0>,	<move	#8,D0>
+				move	D0,__area2
+				m	<lsl #2,D0>,	<add.l D0,A0>,	<move.l	(A0),A0>
+
+				sub.l	#$a0000,a0
+				add.l	#__地形table＆,a0
+
+				m	<move.l	A0,__ptr_地形table>,	<BSR READ_地形CODE>
+			POP	D0/A0
+@@;
+	M	<tst __BACKを10回に分けて描くCOUNTER>,	<bEQ EXIT__DRAW_GR>
+	PUSH	D0-D1/A0-A1
+		m	<move.l	__地形code_buf内のpointer,A1>,	<move.l	__gr_pointer,A0>
+		m	<BSR SUB__DRAW_GR>,	<add.l #$20,A0>
+		m	<BSR SUB__DRAW_GR>,	<add.l #$20,A0>
+		m	<move.l	A1,__地形code_buf内のpointer>,	<move.l	A0,__gr_pointer>
+		M	<sub #1,__BACKを10回に分けて描くCOUNTER>,	<bNE @F>
+			m	<move.l	__gr_pointer,A0>,	<sub.l #$4280,A0 *\17024>
+			IFn CC,	<cmp.l #_GRAM,A0>,	<lea $C7C000,A0>
+			move.l	A0,__gr_pointer
+@@;
+	POP	D0-D1/A0-A1
+EXIT__DRAW_GR	RTS ()
+*--
+SUB__DRAW_GR *( A0:__gr_pointer , A1	)	85AB4
+	move	(A1)+,D1
+	m	<moveq #0,D0>,	<move D1,D0>,	<and #$FFC,D0>,	<lsr #2,D0>
+	m	<rol #4,D1>,	<and.b #$F,D1>
+	BSR	DRAW_GR_16×16DOT
+ RTS ( a1 )
+*--
+DRAW_GR_16×16DOT *( A0:__gr_pointer , D0 , D1	)	85D7E
+	PUSH	D0-D1/A0-A1
+	m	<lsl.l #8,D0>,	<add.l D0,D0>,	<lea __地形pcg_data,A1>,	<add.l D0,A1>
+	lsl.b	#4,D1
+
+	REPT	16
+		m	<move (A1)+,D0>,	<add.b D1,D0>,	<move D0,(A0)+>
+	ENDM
+
+	REPT	15
+		add.l	#$3E0,A0
+		REPT	16
+			m	<move (A1)+,D0>,	<add.b D1,D0>,	<move D0,(A0)+>
+		ENDM
+	ENDM								*計16*16
+	POP	D0-D1/A0-A1
+ RTS
+*------------------
+READ_地形CODE *()
+	PUSH	D0-D2/A0-A1
+	m	<move.l	__ptr_地形table,A1>,	<lea __buf_地形code,A0>,	<move #$13,D1>
+~LOOP__READ_地形CODE
+@@			move	(A1)+,D0
+			M	<btst #1,D0>,	<bNE ~FLAG_ON__READ_地形CODE>
+			M	<btst #0,D0>,	<bNE @F>
+			move	D0,(A0)+
+		dbF	D1,@B
+		BRA	EXIT__READ_地形CODE
+
+@@:		lsr	#2,D0					*　最下位bitが1の時
+		move	(A1)+,D2
+@@			move	D2,(A0)+			*　loop{
+			M	<subq.w	#1,D1>,	<bCS EXIT__READ_地形CODE> *　　dbF代わり&break
+		M	<subq.w	#1,D0>,	<bNE @B>		*　}
+	BRA	~LOOP__READ_地形CODE
+
+~FLAG_ON__READ_地形CODE;					*　第一bitが1の時
+	M	<btst #$E,D0>,	<bNE @F>
+		move	#-1,__no_縦scroll_flag
+		BRA	~LOOP__READ_地形CODE			*　　　continue
+
+@@:		move	#-1,__on_the_GND_flag
+*		addq.w	#1,$86688
+		BRA	~LOOP__READ_地形CODE			*　　　continue
+*~}
+
+EXIT__READ_地形CODE
+	move.l	#__buf_地形code,__地形code_buf内のpointer
+	move.l	A1,__ptr_地形table
+	POP	D0-D2/A0-A1
+ RTS
+*-----------------
+GND__INIT
+	SUPER
+	lea	_CRTC_GS0_SC,A1
+*	move.l	#$200100,D0	*32,256
+	move.l	#$d00100,D0	*32,256
+*	move.l	(a1),d0
+*	move	#$100,d0
+	m	<move.l	D0,(A1)+>,	<move.l	D0,(A1)+>
+	m	<move.l	D0,(A1)+>,	<move.l	D0,(A1)>
+	move.l	D0,__GSxy
+
+	lea	__地形table＆,A0
+	m	<moveq #0,D0>,	<*move	__area2,D0>	*初期化時に0にされて……
+	m	<lsl #2,D0>,	<add.l D0,A0>,	<move.l	(A0),A1>
+
+	sub.l	#$a0000,a1
+	add.l	#__地形table＆,a1
+
+	lea	$C7C000,A0
+	move	#$10,D7
+~LOOP1__GND__INIT
+		move	#$13,D6
+~~LOOP2_GND__INIT	;
+				move	(A1)+,D1
+			M	<btst #1,D1>,	<bNE ~~LOOP2_GND__INIT>	*continue
+			M	<btst #0,D1>,	<bNE L85B2E>	*別の内容のLOOPへ
+
+			m	<BSR SUB__GND__INIT>,	<add.l #$20,A0>
+		dbF	D6,~~LOOP2_GND__INIT
+		sub.l	#$4280,A0
+	dbF	D7,~LOOP1__GND__INIT
+	BRA	EXIT__GND__INIT		*break
+
+L85B2E
+			m	<lsr #2,D1>,	<move D1,D5>,	<subq.w	#1,D5>
+			move	(A1)+,D1
+@@				m	<BSR.s SUB__GND__INIT>,	<add.l #$20,A0>
+				M	<subq.w	#1,D6>,	<bCS L85B48>	*break
+
+			dbF	D5,@B
+		BRA.s	~~LOOP2_GND__INIT
+L85B48
+		sub.l	#$4280,A0
+	dbF	D7,~LOOP1__GND__INIT
+*	BRA	EXIT__GND__INIT
+EXIT__GND__INIT
+	m	<move.l	A1,__ptr_地形table>,	<BSR READ_地形CODE>
+	move.l	A0,__gr_pointer
+	move	#$A,__BACKを10回に分けて描くCOUNTER
+	move	#$10,__16dot_ctr
+	move.b	#$F,__GND2関係
+	USER
+ RTS
+*--
+SUB__GND__INIT	*85B7E
+	move	D1,-(A7)
+	m	<moveq #0,D0>,	<move D1,D0>,	<and #$FFC,D0>,	<lsr #2,D0>
+	m	<rol #4,D1>,	<and.b #$F,D1>
+	BSR	DRAW_GR_16×16DOT
+	move	(A7)+,D1
+ RTS
+*---------------------
+
+	.bss
+__BACKを10回に分けて描くCOUNTER	.ds.w	1
+__地形code_buf内のpointer	.ds.l	1
+__ptr_地形table	.ds.l	1
+__buf_地形code	.ds.w	$14
+__GND2関係	.ds.w	1
+__GSxy:
+__GSx	.ds.w	1
+__GSy	.ds.w	1
+
+__scroll_speed_flag	.ds.w	1
+
+
+	.data
+__gr_pointer	.dc.l	$C7C000	*G_PAGE1の半分の所
+__GNDy	.dc.w	$100
+__16dot_ctr	.dc.w	1
+__area2	.dc.w	0
+
+
+

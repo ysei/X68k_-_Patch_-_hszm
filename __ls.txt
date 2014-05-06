@@ -1,0 +1,14 @@
+total 104
+-rw-r--r--  1 baron  users  9899 Apr 12 22:42:46 1992 TAIOU.DOC
+-rw-r--r--  1 root   wheel     0 May  6 09:20:09 2014 __ls.txt
+-rw-r--r--  1 baron  users   809 Apr  8 22:05:04 1992 common.inc
+-rw-r--r--  1 baron  users  4261 Apr  9 20:12:24 1992 hisio.has
+-rw-r--r--  1 baron  users  1354 Nov 26 13:06:44 1991 hisio_prk.has
+-rw-r--r--  1 baron  users   317 Apr  7 11:03:20 1992 hmk.bat
+-rw-r--r--  1 baron  users  2970 Feb 21 15:47:04 2002 main_init.has
+-rw-r--r--  1 baron  users  1386 Mar 31 16:01:54 1992 make_d24b.has
+-rw-r--r--  1 baron  users  1134 Mar 31 15:25:58 1992 naw_file.has
+-rw-r--r--  1 baron  users  2867 Nov 26 19:58:48 1991 read2.has
+-rw-r--r--  1 baron  users  2133 Nov 23 22:30:08 1991 read_data.has
+-rw-r--r--  1 baron  users  4948 Apr  8 22:33:42 1992 scroll.has
+-rw-r--r--  1 baron  users  2051 Mar 14 22:30:22 1992 te.has

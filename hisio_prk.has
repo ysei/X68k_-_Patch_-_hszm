@@ -1,0 +1,104 @@
+
+	*IPLを参考にした飛翔鮫の   プログラム
+
+	.include	doscall.mac
+	.include	iocscall.mac
+
+
+_data_size	equ	15360
+
+	.text
+	.even
+
+	lea	__stack,sp
+
+
+
+	lea	__fname,a0
+	BSR	READ
+
+	move.b	#$00,D0		*こいつが次に実行される
+	move.b	#$02,D1
+*	move.w	#$000F,D2
+*	movea.l	#$00002400,A0
+	lea	__data_buf,a0
+	bsr	WRITE
+
+
+	DOS	_EXIT
+
+*--------
+WRITE
+	movem.l	d0-d4/a0-a1,-(sp)
+	movea.l	a0,a1
+*	moveq	#0,d3
+*	move.w	d2,d3
+*	asl.l	#8,d3
+*	asl.l	#2,d3
+	move.l	#$00000300,d2
+	move.b	d0,d4
+	lsr.b	#1,d4
+	move.b	d4,d2
+	swap	d2
+	move.w	#$0100,d2
+	lsr.b	#1,d0
+	bcs.s	@F
+		move.w	#0,d2
+@@
+	move.b	d1,d2
+	move.w	#$9070,d1
+	move.l	#_data_size,d3
+	IOCS	_B_WRITE
+	move.l	d0,d1
+	swap	d1
+	and.w	#$C000,d1
+	bne.s	@F
+	movem.l	(sp)+,d0-d4/a0-a1
+ RTS
+@@:	movem.l	(A7)+,D0-D4/A0-A1
+	bra.s	WRITE			*もう一回
+	bset.b	#$0005,$00E82601
+ RTS
+*---------------------
+READ
+	movem.l	d0-d7/a0-a6,-(sp)
+
+	move	#2,-(sp)
+	move.l	a0,-(sp)
+	DOS	_OPEN
+	addq.l	#6,sp
+	move	d0,__fn
+
+	move.l	#_data_size,-(sp)
+	pea	__data_buf
+	move	__fn,-(sp)
+	DOS	_READ
+	lea	10(sp),sp
+
+	move	__fn,-(sp)
+	DOS	_CLOSE
+	addq.l	#2,sp
+
+	movem.l	(sp)+,d0-d7/a0-a6
+ RTS
+*======================
+
+	.data
+
+__fname		.dc.b	'data00',0
+
+
+	.bss
+	.even
+
+__fn		.ds.w	1
+__data_buf	.ds.b	1024*1024
+
+
+	.stack
+	.even
+
+__stack0
+	.ds.b	128
+__stack
+

@@ -1,0 +1,216 @@
+
+	*IPLを参考にした飛翔鮫のデータ読み出しプログラム
+
+	.include	doscall.mac
+
+	.text
+	.even
+
+	lea	__stack,sp
+
+
+	move.b	#$5A,D0
+	move.b	#1,D1
+	move	#$18,D2
+*	lea	$7A000,A0
+	lea	__data_buf,a0
+	BSR	READ		*data21
+
+	lea	__f1,a0
+	BSR	WRITE
+
+
+	move.b	#$74,D0
+	move.b	#1,D1
+	move	#1,D2
+*	lea	$BC000,A0
+	lea	__data_buf,a0
+	BSR	READ		*data22
+
+	lea	__f2,a0
+	BSR	WRITE
+
+
+	move.b	#2,D0
+	move.b	#1,D1
+	move	#$59,D2
+*	lea	$80000,A0
+	lea	__data_buf,a0
+	BSR	READ		*data23
+
+	lea	__f3,a0
+	BSR	WRITE
+
+
+	move.b	#$D,D0
+	move.b	#2,D1
+	move	#$27,D2
+*	lea	$967A0,A0
+	lea	__data_buf,a0
+	BSR	READ		*data24
+
+	lea	__f4,a0
+	BSR	WRITE
+
+
+	move.b	#$12,D0
+	move.b	#1,D1
+	move	#$40,D2
+*	lea	$A0000,A0
+	lea	__data_buf,a0
+	BSR	READ		*data25
+
+	lea	__f5,a0
+	BSR	WRITE
+
+
+	move.b	#$1A,D0
+	move.b	#1,D1
+	move	#$100,D2
+*	lea	$C0000,A0
+	lea	__data_buf,a0
+	BSR	READ		*data26
+
+	lea	__f6,a0
+	BSR	WRITE
+
+
+	move.b	#$3A,D0
+	move.b	#1,D1
+	move	#$80,D2
+*	lea	$10000,A0
+	lea	__data_buf,a0
+	BSR	READ		*data27
+
+	lea	__f7,a0
+	BSR	WRITE
+
+
+	move.b	#$4A,D0
+	move.b	#1,D1
+	move	#$80,D2
+*	lea	$C0000,A0
+	lea	__data_buf,a0
+	BSR	READ		*data28
+
+	lea	__f8,a0
+	BSR	WRITE
+
+
+	move.b	#$5D,D0
+	move.b	#1,D1
+	move	#$80,D2
+*	lea	$E0000,A0
+	lea	__data_buf,a0
+	BSR	READ		*data29
+
+	lea	__f9,a0
+	BSR	WRITE
+
+
+	move.b	#$5A,D0
+	move.b	#1,D1
+	move	#$18,D2
+*	lea	$7A000,A0
+	lea	__data_buf,a0
+	BSR	READ		*data2A
+
+	lea	__fA,a0
+	BSR	WRITE
+
+
+
+	DOS	_EXIT
+
+*--------
+READ
+	movem.l	d0-d4/a0-a1,-(sp)
+	movea.l	a0,a1
+	moveq	#0,d3
+	move.w	d2,d3
+	asl.l	#8,d3
+	asl.l	#2,d3
+	move.l	#$00000300,d2
+	move.b	d0,d4
+	lsr.b	#1,d4
+	move.b	d4,d2
+	swap	d2
+	move.w	#$0100,d2
+	lsr.b	#1,d0
+	bcs.s	@F
+		move.w	#0,d2
+@@
+	move.b	d1,d2
+	move.w	#$9070,d1
+	move.l	d3,__data_size	*データサイズをとっとく
+	moveq	#$46,d0
+	trap	#$0F		*diskから読み込み
+	move.l	d0,d1
+	swap	d1
+	and.w	#$C000,d1
+	bne.s	@F
+	movem.l	(sp)+,d0-d4/a0-a1
+ RTS
+*---------
+@@:	movem.l	(A7)+,D0-D4/A0-A1
+	bra.s	READ		*もう一回
+	bset.b	#$0005,$00E82601
+ RTS
+*---------------------
+WRITE
+	movem.l	d0-d7/a0-a6,-(sp)
+
+	move	#%100000,-(sp)
+	move.l	a0,-(sp)
+	DOS	_CREATE
+	addq.l	#6,sp
+
+	move	#2,-(sp)
+	move.l	a0,-(sp)
+	DOS	_OPEN
+	addq.l	#6,sp
+	move	d0,__fn
+
+	move.l	__data_size,-(sp)
+	pea	__data_buf
+	move	__fn,-(sp)
+	DOS	_WRITE
+	lea	10(sp),sp
+
+	move	__fn,-(sp)
+	DOS	_CLOSE
+	addq.l	#2,sp
+
+	movem.l	(sp)+,d0-d7/a0-a6
+ RTS
+*======================
+
+	.data
+
+__f1	.dc.b	'data21',0
+__f2	.dc.b	'data22',0
+__f3	.dc.b	'data23',0
+__f4	.dc.b	'data24',0
+__f5	.dc.b	'data25',0
+__f6	.dc.b	'data26',0
+__f7	.dc.b	'data27',0
+__f8	.dc.b	'data28',0
+__f9	.dc.b	'data29',0
+__fA	.dc.b	'data2A',0
+
+
+	.bss
+	.even
+
+__fn		.ds.w	1
+__data_size	.ds.l	1
+__data_buf	.ds.b	768*1024	*768Kbyte
+
+
+	.stack
+	.even
+
+__stack0
+	.ds.b	128
+__stack
+
